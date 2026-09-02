@@ -1,0 +1,136 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The detector is the part that must not drift. It builds without wxWidgets, so
+  # it runs first and fast: if the numbers moved, nothing else matters.
+  gate-tests:
+    name: detector known-answer tests
+    runs-on: ubuntu-latest
+    container: debian:bookworm
+    steps:
+      - uses: actions/checkout@v4
+      - name: install build deps
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            build-essential pkg-config ffmpeg python3 python3-numpy \
+            libavformat-dev libavcodec-dev libavutil-dev
+      - name: build the test harnesses
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror \
+            -o test-scan tests/test-scan.cc \
+            src/spek-gate.cc src/spek-gate-decode.cc src/spek-gate-scan.cc \
+            $(pkg-config --cflags --libs libavformat libavcodec libavutil)
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror \
+            -o gate-cli tests/gate-cli.cc \
+            src/spek-gate.cc src/spek-gate-decode.cc src/spek-gate-scan.cc \
+            $(pkg-config --cflags --libs libavformat libavcodec libavutil)
+      - name: scan and file-action guards
+        run: ./test-scan
+      - name: round-trip controls
+        # Laundering known-clean audio through MP3 and checking it comes back
+        # flagged is the only test that proves the detector detects anything.
+        run: |
+          mkdir -p ctl && cd ctl
+          ffmpeg -y -v error -f lavfi -i "anoisesrc=d=20:c=pink:r=44100:a=0.5:seed=1" \
+                 -f lavfi -i "anoisesrc=d=20:c=pink:r=44100:a=0.5:seed=2" \
+                 -filter_complex "[0][1]join=inputs=2:channel_layout=stereo" \
+                 -ar 44100 -sample_fmt s16 clean.flac
+          ffmpeg -y -v error -i clean.flac -b:a 128k -c:a libmp3lame m.mp3
+          ffmpeg -y -v error -i m.mp3 -ar 44100 -sample_fmt s16 fake128.flac
+          ffmpeg -y -v error -i clean.flac -sample_fmt s32 -bits_per_raw_sample 24 padded24.flac
+          cd ..
+          ./gate-cli ctl/clean.flac   | grep -q "^verdict=clean"  || { echo "clean file misjudged"; exit 1; }
+          ./gate-cli ctl/fake128.flac | grep -q "^verdict=lossy"  || { echo "transcode not caught"; exit 1; }
+          ./gate-cli ctl/padded24.flac| grep -q "^verdict=padded" || { echo "padded file not caught"; exit 1; }
+          echo "controls behave as expected"
+
+  linux:
+    name: linux ${{ matrix.arch }}
+    needs: gate-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+          - arch: armv7
+            platform: linux/arm/v7
+    steps:
+      - uses: actions/checkout@v4
+      # arm64 and armv7 build under emulation; slow, but it is a compile, not a scan.
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.arch != 'amd64'
+      - uses: docker/setup-buildx-action@v3
+      - name: build
+        run: |
+          docker run --rm --platform ${{ matrix.platform }} \
+            -v "$PWD:/src" -w /src debian:bookworm bash -c '
+              set -e
+              apt-get update -qq
+              apt-get install -y --no-install-recommends \
+                build-essential autoconf automake autopoint libtool pkg-config \
+                gettext libwxgtk3.2-dev libavformat-dev libavcodec-dev libavutil-dev
+              ./autogen.sh --disable-nls
+              make -j"$(nproc)"
+              strip src/spek
+            '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spektro-linux-${{ matrix.arch }}
+          path: src/spek
+
+  windows:
+    name: windows x86_64
+    needs: gate-tests
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      # MSYS2 rather than MXE: MXE compiles its own gcc, ffmpeg and wxWidgets from
+      # source, which is hours. MSYS2 has all three prebuilt. dist/win/ still
+      # documents the MXE route for a fully static local build.
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-wxwidgets3.2-msw
+            mingw-w64-x86_64-ffmpeg
+            autoconf automake libtool pkg-config gettext-devel
+      - name: build
+        run: |
+          ./autogen.sh --disable-nls
+          make -j$(nproc)
+      - name: collect exe and its dlls
+        run: |
+          mkdir -p dist
+          cp src/spek.exe dist/spektro.exe
+          # A MinGW build links against DLLs from the toolchain; ship them beside
+          # the exe so it runs on a machine without MSYS2 installed.
+          ldd dist/spektro.exe \
+            | grep -i /mingw64/bin \
+            | awk '{print $3}' \
+            | xargs -r -I{} cp -n {} dist/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spektro-windows-x86_64
+          path: dist/

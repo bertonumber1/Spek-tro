@@ -1,0 +1,33 @@
+Source: spek
+Section: sound
+Priority: optional
+Maintainer: Matteo Bini <matteobin@tiepi.it>
+Build-Depends: debhelper-compat (= 13),
+               gettext,
+               pkg-config,
+               libavcodec-dev (>= 7:5.0.1),
+               libavformat-dev (>= 7:5.0.1),
+               libavutil-dev (>= 7:5.0.1),
+               libwxgtk3.2-dev,
+               wx-common
+Standards-Version: 4.6.2
+Homepage: http://spek.cc/
+Rules-Requires-Root: no
+
+Package: spek
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: acoustic spectrum analyser
+ Spek helps to analyse your audio files by showing their spectrogram.
+ It supports all popular lossy and lossless audio file formats.
+ .
+ Features:
+ .
+  * Ultra-fast signal processing, uses multiple threads to further
+    speed up the analysis
+  * Shows the codec name and the audio signal parameters
+  * Can save the spectrogram as an image file
+  * Drag-and-drop support; associates with common audio file formats
+  * Auto-fitting time, frequency and spectral density rulers
+  * Adjustable spectral density range

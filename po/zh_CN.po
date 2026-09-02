@@ -1,0 +1,209 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR The Spek authors
+# This file is distributed under the same license as the spek package.
+#
+# Translators:
+# Alexander Kojevnikov <alexander@kojevnikov.com>, 2012
+# Shibing Huang <mr.shibing@mac.com>, 2012
+msgid ""
+msgstr ""
+"Project-Id-Version: Spek\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-01-09 19:59-0800\n"
+"PO-Revision-Date: 2011-02-23 09:25+0000\n"
+"Last-Translator: Shibing Huang <mr.shibing@mac.com>, 2012\n"
+"Language-Team: Chinese (China) (http://www.transifex.com/spek/spek/language/"
+"zh_CN/)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: data/spek.desktop.in:4
+msgid "Spek"
+msgstr "Spek"
+
+#: data/spek.desktop.in:5
+msgid "Spectrum Analyser"
+msgstr "频谱分析器"
+
+#: data/spek.desktop.in:6
+msgid "View spectrograms of your audio files"
+msgstr "查看你的音频频谱"
+
+#: src/spek-pipeline.cc:182
+#, c-format
+msgid "%d kbps"
+msgstr "%d kbps"
+
+#: src/spek-pipeline.cc:188
+#, c-format
+msgid "%d Hz"
+msgstr "%d Hz"
+
+#: src/spek-pipeline.cc:196
+#, c-format
+msgid "%d bit"
+msgid_plural "%d bits"
+msgstr[0] "%d 字节"
+
+#: src/spek-pipeline.cc:244
+msgid "Cannot open input file"
+msgstr "无法打开文件"
+
+#: src/spek-pipeline.cc:247
+msgid "Cannot find stream info"
+msgstr "无法定位流媒体信息"
+
+#: src/spek-pipeline.cc:250
+msgid "The file contains no audio streams"
+msgstr "该文件不包含任何音频流"
+
+#: src/spek-pipeline.cc:253
+msgid "Cannot find decoder"
+msgstr "无法定位解码器"
+
+#: src/spek-pipeline.cc:256
+msgid "Unknown duration"
+msgstr "未知长度"
+
+#: src/spek-pipeline.cc:259
+msgid "No audio channels"
+msgstr "无音频通道"
+
+#: src/spek-pipeline.cc:262
+msgid "Cannot open decoder"
+msgstr "无法打开解码器"
+
+#: src/spek-pipeline.cc:265
+msgid "Unsupported sample format"
+msgstr "不支持的音频"
+
+#. TRANSLATORS: first %d is the stream number, second %d is the
+#. total number of streams, %s is the stream description.
+#: src/spek-pipeline.cc:279
+#, c-format
+msgid "Stream %d / %d: %s"
+msgstr ""
+
+#. TRANSLATORS: first %s is the error message, second %s is stream description.
+#: src/spek-pipeline.cc:286
+#, c-format
+msgid "%s: %s"
+msgstr "%s: %s"
+
+#: src/spek-preferences-dialog.cc:58
+msgid "Preferences"
+msgstr "偏好设定"
+
+#: src/spek-preferences-dialog.cc:63
+msgid "(system default)"
+msgstr "(系统默认)"
+
+#. TRANSLATORS: The name of a section in the Preferences dialog.
+#: src/spek-preferences-dialog.cc:70
+msgid "General"
+msgstr "基本设定"
+
+#: src/spek-preferences-dialog.cc:79
+msgid "Language:"
+msgstr "语言"
+
+#: src/spek-preferences-dialog.cc:95
+msgid "Check for &updates"
+msgstr "检查更新"
+
+#: src/spek-spectrogram.cc:216
+#, c-format
+msgid "%d kHz"
+msgstr "%d kHz"
+
+#: src/spek-spectrogram.cc:221
+#, c-format
+msgid "%d dB"
+msgstr "%d dB"
+
+#. TRANSLATORS: keep "00" unchanged, it's used to calc the text width
+#: src/spek-spectrogram.cc:327
+msgid "00 kHz"
+msgstr "00 kHz"
+
+#. TRANSLATORS: keep "-00" unchanged, it's used to calc the text width
+#: src/spek-spectrogram.cc:358
+msgid "-00 dB"
+msgstr "-00 dB"
+
+#: src/spek-window.cc:57
+msgid "Spek - Acoustic Spectrum Analyser"
+msgstr "Spek - 声学频谱分析器"
+
+#: src/spek-window.cc:73
+msgid "&File"
+msgstr "文件"
+
+#: src/spek-window.cc:79
+msgid "&Edit"
+msgstr "编辑"
+
+#: src/spek-window.cc:83 src/spek-window.cc:88
+msgid "&Help"
+msgstr "帮助"
+
+#: src/spek-window.cc:110
+msgid "Help"
+msgstr "帮助"
+
+#: src/spek-window.cc:123
+msgid "A new version of Spek is available, click to download."
+msgstr "有更新版本的Spek，点击下载。"
+
+#. TRANSLATORS: window title, %s is replaced with the file name
+#: src/spek-window.cc:161
+#, c-format
+msgid "Spek - %s"
+msgstr "Spek - %s"
+
+#: src/spek-window.cc:209
+msgid "All files"
+msgstr "所有文件"
+
+#: src/spek-window.cc:211
+msgid "Audio files"
+msgstr "音频文件"
+
+#: src/spek-window.cc:225
+msgid "Open File"
+msgstr "打开文件"
+
+#: src/spek-window.cc:247
+msgid "PNG images"
+msgstr "PNG图像"
+
+#: src/spek-window.cc:253
+msgid "Save Spectrogram"
+msgstr "保存频谱"
+
+#. Suggested name is <file_name>.png
+#: src/spek-window.cc:261
+msgid "Untitled"
+msgstr "未命名"
+
+#. TRANSLATORS: Add your name here
+#: src/spek-window.cc:315
+msgid "translator-credits"
+msgstr "翻译由 Shibing Huang <mr.shibing@mac.com> 提供"
+
+#: src/spek-window.cc:321
+msgid "Copyright (c) 2010-2013 Alexander Kojevnikov and contributors"
+msgstr "(c) 2010-2013 Alexander Kojevnikov 以及贡献者 版权所有"
+
+#: src/spek-window.cc:324
+msgid "Spek Website"
+msgstr "Spek官方"
+
+#. TRANSLATORS: the %s is the package version.
+#: src/spek.cc:76
+#, c-format
+msgid "Spek version %s"
+msgstr "Spek 版本 %s"
