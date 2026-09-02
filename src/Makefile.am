@@ -68,3 +68,15 @@ spek_LDADD = \
 
 spek_LDFLAGS = \
 	-pthread
+
+# The icon and the DPI-aware manifest. windres output is an object file, so it
+# is linked in rather than passed as a flag.
+if OS_WIN
+spek_LDADD += spek-res.$(OBJEXT)
+spek_DEPENDENCIES = spek-res.$(OBJEXT)
+
+spek-res.$(OBJEXT): $(top_srcdir)/dist/win/spek.rc
+	$(WX_RESCOMP) -I$(top_srcdir)/dist/win $(top_srcdir)/dist/win/spek.rc -O coff -o $@
+
+CLEANFILES = spek-res.$(OBJEXT)
+endif

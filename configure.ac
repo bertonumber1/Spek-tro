@@ -20,6 +20,9 @@ AS_CASE([$host],
 	[*-*-mingw*], [
 		os="WIN"
 		AC_DEFINE([OS_WIN], [1], [Windows])
+		# Without this the linker emits a console binary and the app opens a
+		# black console window behind its own window.
+		LDFLAGS="$LDFLAGS -mwindows"
 	],
 	[*-*-darwin*], [
 		os="OSX"
@@ -31,6 +34,8 @@ AS_CASE([$host],
 	]
 )
 AC_MSG_RESULT([$os])
+AM_CONDITIONAL([OS_WIN], [test "x$os" = xWIN])
+AC_SUBST([WX_RESCOMP], [`$WX_CONFIG_PATH --rescomp 2>/dev/null`])
 
 AC_CHECK_PROG(HAVE_VALGRIND, valgrind, yes, no)
 AC_ARG_ENABLE(
