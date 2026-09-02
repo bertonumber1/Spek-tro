@@ -2,8 +2,6 @@
 #include <wx/artprov.h>
 #include <wx/dnd.h>
 #include <wx/filename.h>
-#include <wx/protocol/http.h>
-#include <wx/sstream.h>
 
 // WX on WIN doesn't like it when pthread.h is included first.
 #include <pthread.h>
@@ -38,7 +36,6 @@ BEGIN_EVENT_TABLE(SpekWindow, wxFrame)
 END_EVENT_TABLE()
 
 // Forward declarations.
-static void * check_version(void *);
 
 class SpekDropTarget : public wxFileDropTarget
 {
@@ -169,8 +166,8 @@ SpekWindow::SpekWindow(const wxString& path) :
 
     SetSizer(sizer);
 
-    pthread_t thread;
-    pthread_create(&thread, NULL, &check_version, this);
+    // No update check: this fork has no version endpoint, and asking upstream's
+    // would both mislead the user and contact a third party unbidden.
 }
 
 void SpekWindow::open(const wxString& path)
@@ -309,9 +306,7 @@ void SpekWindow::on_preferences(wxCommandEvent&)
 
 void SpekWindow::on_help(wxCommandEvent&)
 {
-    wxLaunchDefaultBrowser(
-        wxString::Format("http://help.spek.cc/man-%s.html", PACKAGE_VERSION)
-    );
+    wxLaunchDefaultBrowser("https://github.com/bertonumber1/Spek-tro#readme");
 }
 
 void SpekWindow::on_about(wxCommandEvent&)
@@ -340,10 +335,10 @@ void SpekWindow::on_about(wxCommandEvent&)
     }
     info.SetName("Spek-tro");
     info.SetVersion(PACKAGE_VERSION);
-    info.SetCopyright(_("Copyright (c) 2010-2013 Alexander Kojevnikov and contributors"));
+    info.SetCopyright(_("Based on Spek, (c) 2010-2013 Alexander Kojevnikov and contributors"));
     info.SetDescription(this->description);
 #ifdef OS_UNIX
-    info.SetWebSite("https://www.spek.cc/", _("Spek Website"));
+    info.SetWebSite("https://github.com/bertonumber1/Spek-tro", _("Spek-tro on GitHub"));
     info.SetIcon(wxArtProvider::GetIcon("spek", wxART_OTHER, wxSize(128, 128)));
 #endif
     wxAboutBox(info);
@@ -357,7 +352,7 @@ void SpekWindow::on_notify(wxCommandEvent&)
 
 void SpekWindow::on_visit(wxCommandEvent&)
 {
-    wxLaunchDefaultBrowser("https://www.spek.cc");
+    wxLaunchDefaultBrowser("https://github.com/bertonumber1/Spek-tro/releases");
 }
 
 void SpekWindow::on_close(wxCommandEvent& event)
@@ -365,59 +360,6 @@ void SpekWindow::on_close(wxCommandEvent& event)
     wxWindow *self = ((wxWindow *)event.GetEventObject())->GetGrandParent();
     self->GetSizer()->Hide((size_t)0);
     self->Layout();
-}
-
-static void * check_version(void *p)
-{
-    // Does the user want to check for updates?
-    SpekPreferences& prefs = SpekPreferences::get();
-    if (!prefs.get_check_update()) {
-        return NULL;
-    }
-
-    // Calculate the number of days since 0001-01-01, borrowed from GLib.
-    wxDateTime now = wxDateTime::Now();
-    int year = now.GetYear() - 1;
-    int days = year * 365;
-    days += (year >>= 2); // divide by 4 and add
-    days -= (year /= 25); // divides original # years by 100
-    days += year >> 2; // divides by 4, which divides original by 400
-    days += now.GetDayOfYear();
-
-    // When was the last update?
-    int diff = days - prefs.get_last_update();
-    if (diff < 7) {
-        return NULL;
-    }
-
-    // Get the version number.
-    wxString version;
-    wxHTTP http;
-    if (http.Connect("help.spek.cc")) {
-        wxInputStream *stream = http.GetInputStream("/version");
-        if (stream) {
-            wxStringOutputStream out(&version);
-            stream->Read(out);
-            version.Trim();
-            delete stream;
-        }
-    }
-
-    if (version.IsEmpty()) {
-        return NULL;
-    }
-
-    if (1 == spek_vercmp(version.mb_str(wxConvLibc), PACKAGE_VERSION)) {
-        SpekWindow *self = (SpekWindow *)p;
-        wxCommandEvent event(SPEK_NOTIFY_EVENT, -1);
-        event.SetEventObject(self);
-        wxPostEvent(self, event);
-    }
-
-    // Update the preferences.
-    prefs.set_check_update(true);
-    prefs.set_last_update(days);
-    return NULL;
 }
 
 // ---- fake-lossless panel --------------------------------------------------------
