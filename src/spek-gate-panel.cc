@@ -47,14 +47,19 @@ wxBEGIN_EVENT_TABLE(SpekGatePanel, wxPanel)
     EVT_LIST_ITEM_SELECTED(ID_LIST, SpekGatePanel::on_item_selected)
     EVT_LIST_ITEM_CHECKED(ID_LIST, SpekGatePanel::on_item_checked)
     EVT_LIST_ITEM_UNCHECKED(ID_LIST, SpekGatePanel::on_item_checked)
-    EVT_THREAD(GATE_EVT_PROGRESS, SpekGatePanel::on_progress)
-    EVT_THREAD(GATE_EVT_FINISHED, SpekGatePanel::on_finished)
 wxEND_EVENT_TABLE()
 
 SpekGatePanel::SpekGatePanel(wxWindow *parent, GateSpectrogramRenderer *renderer)
     : wxPanel(parent, wxID_ANY), renderer(renderer)
 {
     build_ui();
+
+    // Bound here rather than in the event table: EVT_THREAD takes a window ID
+    // and binds wxEVT_THREAD, so putting a custom event type there matches
+    // nothing and the handlers never run.
+    Bind(GATE_EVT_PROGRESS, &SpekGatePanel::on_progress, this);
+    Bind(GATE_EVT_FINISHED, &SpekGatePanel::on_finished, this);
+
     update_buttons();
 }
 
@@ -217,16 +222,24 @@ void SpekGatePanel::start_scan(const std::vector<std::string>& paths, const std:
     update_buttons();
 
     this->worker.reset(new std::thread([this, paths, root]() {
-        GateScan result = gate_scan_paths(
-            paths, root,
-            [this](int done, int total, const std::string& name) {
+        GateScan result;
+        try {
+            result = gate_scan_paths(
+                paths, root,
+                [this](int done, int total, const std::string& name) {
                 auto *evt = new wxThreadEvent(GATE_EVT_PROGRESS);
                 evt->SetInt(done);
                 evt->SetExtraLong(total);
                 evt->SetString(wxString::FromUTF8(name.c_str()));
                 wxQueueEvent(this, evt);
             },
-            [this]() { return this->stop_flag.load(); });
+                [this]() { return this->stop_flag.load(); });
+        } catch (...) {
+            // A scan must never take the program down, and must never leave the
+            // window stuck with every button disabled.
+            result = GateScan();
+            result.root = root;
+        }
 
         {
             std::lock_guard<std::mutex> lock(this->result_mutex);

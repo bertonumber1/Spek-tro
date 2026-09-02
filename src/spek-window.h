@@ -14,6 +14,8 @@ class SpekWindow : public wxFrame, public GateSpectrogramRenderer
 public:
     SpekWindow(const wxString& path);
     void open(const wxString& path);
+    // Reveal the fake-lossless panel and scan `dir` straight away.
+    void check_folder(const wxString& dir);
 
     bool render_spectrogram(const wxString& audio_path, const wxString& out_path,
                             int width, int height, wxString& error) override;

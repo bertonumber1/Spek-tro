@@ -449,3 +449,13 @@ bool SpekWindow::render_spectrogram(const wxString& audio_path, const wxString& 
 {
     return this->spectrogram->render_offscreen(audio_path, out_path, width, height, error);
 }
+
+void SpekWindow::check_folder(const wxString& dir)
+{
+    if (!this->splitter->IsSplit()) {
+        this->gate_panel->Show();
+        this->splitter->SplitHorizontally(
+            this->spectrogram, this->gate_panel, this->FromDIP(220));
+    }
+    this->gate_panel->scan_folder(dir);
+}

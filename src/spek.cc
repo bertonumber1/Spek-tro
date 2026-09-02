@@ -52,6 +52,13 @@ bool Spek::OnInit()
             wxCMD_LINE_VAL_NONE,
             wxCMD_LINE_PARAM_OPTIONAL,
         }, {
+            wxCMD_LINE_OPTION,
+            "c",
+            "check",
+            "Scan a folder for fake lossless files and show the results",
+            wxCMD_LINE_VAL_STRING,
+            wxCMD_LINE_PARAM_OPTIONAL,
+        }, {
             wxCMD_LINE_PARAM,
             NULL,
             NULL,
@@ -81,10 +88,20 @@ bool Spek::OnInit()
     if (parser.GetParamCount()) {
         this->path = parser.GetParam();
     }
+    wxString check_dir;
+    bool want_check = parser.Found("check", &check_dir);
 
     this->window = new SpekWindow(this->path);
     this->window->Show(true);
     SetTopWindow(this->window);
+
+    // Queued rather than called directly: the scan posts events back to the
+    // panel, which has to be shown and its event loop running first.
+    if (want_check && !check_dir.IsEmpty()) {
+        this->window->CallAfter([this, check_dir]() {
+            this->window->check_folder(check_dir);
+        });
+    }
     return true;
 }
 
