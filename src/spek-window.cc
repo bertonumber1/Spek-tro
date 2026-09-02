@@ -32,7 +32,6 @@ BEGIN_EVENT_TABLE(SpekWindow, wxFrame)
     EVT_MENU(wxID_PREFERENCES, SpekWindow::on_preferences)
     EVT_MENU(wxID_HELP, SpekWindow::on_help)
     EVT_MENU(wxID_ABOUT, SpekWindow::on_about)
-    EVT_COMMAND(-1, SPEK_NOTIFY_EVENT, SpekWindow::on_notify)
 END_EVENT_TABLE()
 
 // Forward declarations.
@@ -122,26 +121,6 @@ SpekWindow::SpekWindow(const wxString& path) :
 
     wxSizer *sizer = new wxBoxSizer(wxVERTICAL);
 
-    // wxInfoBar is too limited, construct a custom one.
-    wxPanel *info_bar = new wxPanel(this);
-    info_bar->Hide();
-    info_bar->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_INFOTEXT));
-    info_bar->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_INFOBK));
-    wxSizer *info_sizer = new wxBoxSizer(wxHORIZONTAL);
-    wxStaticText *label = new wxStaticText(
-        info_bar, -1, _("A new version of Spek is available, click to download."));
-    label->SetCursor(*new wxCursor(wxCURSOR_HAND));
-    label->Connect(wxEVT_LEFT_DOWN, wxCommandEventHandler(SpekWindow::on_visit));
-    // This second Connect() handles clicks on the border
-    info_bar->Connect(wxEVT_LEFT_DOWN, wxCommandEventHandler(SpekWindow::on_visit));
-    info_sizer->Add(label, 1, wxALIGN_CENTER_VERTICAL | wxALL, 6);
-    wxBitmapButton *button = new wxBitmapButton(
-        info_bar, -1, wxArtProvider::GetBitmap(ART_CLOSE, wxART_BUTTON),
-        wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-    button->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(SpekWindow::on_close));
-    info_sizer->Add(button, 0, wxALIGN_CENTER_VERTICAL);
-    info_bar->SetSizer(info_sizer);
-    sizer->Add(info_bar, 0, wxEXPAND);
 
     // The spectrogram alone until a scan is asked for, then the results share
     // the window with it: the numbers are the argument, the picture is what you
@@ -342,24 +321,6 @@ void SpekWindow::on_about(wxCommandEvent&)
     info.SetIcon(wxArtProvider::GetIcon("spek", wxART_OTHER, wxSize(128, 128)));
 #endif
     wxAboutBox(info);
-}
-
-void SpekWindow::on_notify(wxCommandEvent&)
-{
-    this->GetSizer()->Show((size_t)0);
-    this->Layout();
-}
-
-void SpekWindow::on_visit(wxCommandEvent&)
-{
-    wxLaunchDefaultBrowser("https://github.com/bertonumber1/Spek-tro/releases");
-}
-
-void SpekWindow::on_close(wxCommandEvent& event)
-{
-    wxWindow *self = ((wxWindow *)event.GetEventObject())->GetGrandParent();
-    self->GetSizer()->Hide((size_t)0);
-    self->Layout();
 }
 
 // ---- fake-lossless panel --------------------------------------------------------
