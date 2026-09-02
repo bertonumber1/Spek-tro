@@ -72,8 +72,8 @@ void SpekGatePanel::build_ui()
 
     // ---- what to scan ---------------------------------------------------------
     auto *controls = new wxBoxSizer(wxHORIZONTAL);
-    this->btn_folder = new wxButton(this, ID_PICK_FOLDER, _("Scan Folder…"));
-    this->btn_files = new wxButton(this, ID_PICK_FILES, _("Scan Files…"));
+    this->btn_folder = new wxButton(this, ID_PICK_FOLDER, _("Scan Folder..."));
+    this->btn_files = new wxButton(this, ID_PICK_FILES, _("Scan Files..."));
     this->recursive = new wxCheckBox(this, wxID_ANY, _("Include subfolders"));
     this->recursive->SetValue(true);
     this->btn_stop = new wxButton(this, ID_STOP, _("Stop"));
@@ -110,9 +110,9 @@ void SpekGatePanel::build_ui()
     // ---- what to do with the results -----------------------------------------
     auto *actions = new wxWrapSizer(wxHORIZONTAL);
     this->btn_select_flagged = new wxButton(this, ID_SELECT_FLAGGED, _("Select All Flagged"));
-    this->btn_report = new wxButton(this, ID_REPORT, _("Save Report…"));
-    this->btn_spectrograms = new wxButton(this, ID_SPECTROGRAMS, _("Save Spectrograms…"));
-    this->btn_bundle = new wxButton(this, ID_BUNDLE, _("Export Bundle…"));
+    this->btn_report = new wxButton(this, ID_REPORT, _("Save Report..."));
+    this->btn_spectrograms = new wxButton(this, ID_SPECTROGRAMS, _("Save Spectrograms..."));
+    this->btn_bundle = new wxButton(this, ID_BUNDLE, _("Export Bundle..."));
     this->btn_quarantine = new wxButton(this, ID_QUARANTINE, _("Quarantine"));
     this->btn_restore = new wxButton(this, ID_RESTORE, _("Put Quarantined Back"));
     this->btn_delete = new wxButton(this, ID_DELETE, _("Delete"));
@@ -212,6 +212,8 @@ void SpekGatePanel::start_scan(const std::vector<std::string>& paths, const std:
     this->list->DeleteAllItems();
     this->gauge->SetRange((int)paths.size());
     this->gauge->SetValue(0);
+    this->status->SetLabel(wxString::Format(
+        _("Found %d file(s) to check..."), (int)paths.size()));
     update_buttons();
 
     this->worker.reset(new std::thread([this, paths, root]() {
@@ -226,10 +228,12 @@ void SpekGatePanel::start_scan(const std::vector<std::string>& paths, const std:
             },
             [this]() { return this->stop_flag.load(); });
 
-        auto *done_evt = new wxThreadEvent(GATE_EVT_FINISHED);
-        // The scan is moved across on the event so the GUI thread owns it.
-        done_evt->SetPayload(result);
-        wxQueueEvent(this, done_evt);
+        {
+            std::lock_guard<std::mutex> lock(this->result_mutex);
+            this->pending_result = std::move(result);
+        }
+        // The event is only a signal; the result itself was handed over above.
+        wxQueueEvent(this, new wxThreadEvent(GATE_EVT_FINISHED));
     }));
 }
 
@@ -241,7 +245,7 @@ void SpekGatePanel::stop_scan()
 void SpekGatePanel::on_stop(wxCommandEvent&)
 {
     stop_scan();
-    this->status->SetLabel(_("Stopping…"));
+    this->status->SetLabel(_("Stopping..."));
 }
 
 void SpekGatePanel::on_progress(wxThreadEvent& evt)
@@ -250,14 +254,18 @@ void SpekGatePanel::on_progress(wxThreadEvent& evt)
     int total = (int)evt.GetExtraLong();
     this->gauge->SetRange(total);
     this->gauge->SetValue(done);
-    this->status->SetLabel(wxString::Format(_("Checking %d of %d — %s"),
+    this->status->SetLabel(wxString::Format(_("Checking %d of %d - %s"),
                                             done, total,
                                             wxFileName(evt.GetString()).GetFullName()));
 }
 
-void SpekGatePanel::on_finished(wxThreadEvent& evt)
+void SpekGatePanel::on_finished(wxThreadEvent&)
 {
-    this->scan = evt.GetPayload<GateScan>();
+    {
+        std::lock_guard<std::mutex> lock(this->result_mutex);
+        this->scan = std::move(this->pending_result);
+        this->pending_result = GateScan();
+    }
     this->scanning = false;
     this->checked.assign(this->scan.results.size(), false);
     this->gauge->SetValue(this->gauge->GetRange());
@@ -282,7 +290,7 @@ void SpekGatePanel::refresh_results()
         if (!r.title.empty()) {
             track = wxString::FromUTF8(r.artist.empty()
                                            ? r.title.c_str()
-                                           : (r.artist + " — " + r.title).c_str());
+                                           : (r.artist + " - " + r.title).c_str());
         }
         this->list->SetItem(idx, 2, track);
         this->list->SetItem(idx, 3, r.cutoff_hz > 0

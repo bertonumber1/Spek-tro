@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -104,6 +105,12 @@ private:
     wxButton *btn_delete_all = nullptr;
 
     GateScan scan;
+    // Handed over from the worker thread. A wxThreadEvent payload goes
+    // through wxAny, and when that round-trip loses the type GetPayload
+    // silently returns an empty GateScan, which looks exactly like a scan
+    // that found nothing.
+    GateScan pending_result;
+    std::mutex result_mutex;
     std::vector<bool> checked;
     std::string scan_root;
 

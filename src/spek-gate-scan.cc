@@ -10,6 +10,25 @@
 
 namespace fs = std::filesystem;
 
+// A filesystem path from a UTF-8 string.
+//
+// fs::path(std::string) decodes using the native narrow encoding, which on
+// Windows is the ANSI codepage. Every path in this program is UTF-8 (that is what
+// wxString::utf8_str gives and what ffmpeg wants), so going through u8path is the
+// difference between finding a folder called "Bj\u00f6rk" and silently not.
+static fs::path from_utf8(const std::string& s)
+{
+    return fs::u8path(s);
+}
+
+// And back again, so stored paths stay UTF-8 rather than becoming ANSI.
+static std::string to_utf8(const fs::path& p)
+{
+    auto u8 = p.u8string();
+    return std::string(u8.begin(), u8.end());
+}
+
+
 const char *const GATE_QUARANTINE_DIRNAME = "_transcode-quarantine";
 const char *const GATE_RESTORE_LOG = "restore.tsv";
 
@@ -46,7 +65,7 @@ std::vector<std::string> gate_find_audio_files(const std::string& root, bool rec
 {
     std::vector<std::string> out;
     std::error_code ec;
-    if (!fs::is_directory(root, ec)) {
+    if (!fs::is_directory(from_utf8(root), ec)) {
         return out;
     }
 
@@ -55,21 +74,21 @@ std::vector<std::string> gate_find_audio_files(const std::string& root, bool rec
         if (!fs::is_regular_file(p, e)) {
             return;
         }
-        if (!gate_is_checkable(p.string())) {
+        if (!gate_is_checkable(to_utf8(p))) {
             return;
         }
         // Never re-report what a previous scan pulled out.
         for (const auto& part : p) {
-            if (part.string() == GATE_QUARANTINE_DIRNAME) {
+            if (to_utf8(part) == GATE_QUARANTINE_DIRNAME) {
                 return;
             }
         }
-        out.push_back(p.string());
+        out.push_back(to_utf8(p));
     };
 
     if (recursive) {
         for (auto it = fs::recursive_directory_iterator(
-                 root, fs::directory_options::skip_permission_denied, ec);
+                 from_utf8(root), fs::directory_options::skip_permission_denied, ec);
              it != fs::recursive_directory_iterator(); it.increment(ec)) {
             if (ec) {
                 break;
@@ -78,7 +97,7 @@ std::vector<std::string> gate_find_audio_files(const std::string& root, bool rec
         }
     } else {
         for (auto it = fs::directory_iterator(
-                 root, fs::directory_options::skip_permission_denied, ec);
+                 from_utf8(root), fs::directory_options::skip_permission_denied, ec);
              it != fs::directory_iterator(); it.increment(ec)) {
             if (ec) {
                 break;
@@ -303,12 +322,12 @@ std::string gate_format_json(const GateScan& scan)
 bool gate_under_root(const std::string& root, const std::string& p)
 {
     std::error_code ec;
-    fs::path r = fs::weakly_canonical(fs::path(root), ec);
-    if (ec) r = fs::path(root);
-    fs::path f = fs::weakly_canonical(fs::path(p), ec);
-    if (ec) f = fs::path(p);
+    fs::path r = fs::weakly_canonical(from_utf8(root), ec);
+    if (ec) r = from_utf8(root);
+    fs::path f = fs::weakly_canonical(from_utf8(p), ec);
+    if (ec) f = from_utf8(p);
 
-    std::string rs = r.string(), ps = f.string();
+    std::string rs = to_utf8(r), ps = to_utf8(f);
 #ifdef _WIN32
     // Windows treats C:\Music and c:\music as the same folder; a case-sensitive
     // compare would refuse a file the user can plainly see.
@@ -351,8 +370,8 @@ GateActionResult gate_quarantine_files(const std::vector<std::string>& paths,
                                        const std::string& root)
 {
     GateActionResult out;
-    fs::path qdir = fs::path(root) / GATE_QUARANTINE_DIRNAME;
-    out.dir = qdir.string();
+    fs::path qdir = from_utf8(root) / GATE_QUARANTINE_DIRNAME;
+    out.dir = to_utf8(qdir);
 
     std::error_code ec;
     fs::create_directories(qdir, ec);
@@ -365,7 +384,7 @@ GateActionResult gate_quarantine_files(const std::vector<std::string>& paths,
 
     // Appended, not rewritten: a second quarantine run must not lose the first
     // run's record of where its files came from.
-    std::ofstream log((qdir / GATE_RESTORE_LOG).string(), std::ios::app);
+    std::ofstream log(to_utf8(qdir / GATE_RESTORE_LOG), std::ios::app);
 
     for (const auto& p : paths) {
         if (!gate_under_root(root, p)) {
@@ -375,24 +394,24 @@ GateActionResult gate_quarantine_files(const std::vector<std::string>& paths,
         std::error_code e;
         // Mirror the tree under the quarantine dir so two tracks with the same
         // filename on different albums do not collide.
-        fs::path rel = fs::relative(fs::path(p), fs::path(root), e);
-        fs::path dest = e ? (qdir / fs::path(p).filename()) : (qdir / rel);
+        fs::path rel = fs::relative(from_utf8(p), from_utf8(root), e);
+        fs::path dest = e ? (qdir / from_utf8(p).filename()) : (qdir / rel);
         fs::create_directories(dest.parent_path(), e);
         dest = unique_dest(dest);
 
-        fs::rename(fs::path(p), dest, e);
+        fs::rename(from_utf8(p), dest, e);
         if (e) {
             // Across a filesystem boundary rename fails; fall back to copy+delete.
-            fs::copy_file(fs::path(p), dest, fs::copy_options::overwrite_existing, e);
+            fs::copy_file(from_utf8(p), dest, fs::copy_options::overwrite_existing, e);
             if (!e) {
-                fs::remove(fs::path(p), e);
+                fs::remove(from_utf8(p), e);
             }
         }
         if (e) {
             out.failed.push_back({p, e.message()});
             continue;
         }
-        log << dest.string() << "\t" << p << "\n";
+        log << to_utf8(dest) << "\t" << p << "\n";
         out.done++;
     }
     return out;
@@ -402,9 +421,9 @@ GateActionResult gate_restore_quarantined(const std::string& quarantine_dir)
 {
     GateActionResult out;
     out.dir = quarantine_dir;
-    fs::path log_path = fs::path(quarantine_dir) / GATE_RESTORE_LOG;
+    fs::path log_path = from_utf8(quarantine_dir) / GATE_RESTORE_LOG;
 
-    std::ifstream log(log_path.string());
+    std::ifstream log(to_utf8(log_path));
     if (!log) {
         return out;
     }
@@ -420,16 +439,16 @@ GateActionResult gate_restore_quarantined(const std::string& quarantine_dir)
         }
         std::string from = line.substr(0, tab), to = line.substr(tab + 1);
         std::error_code e;
-        if (!fs::exists(fs::path(from), e)) {
+        if (!fs::exists(from_utf8(from), e)) {
             continue;  // already restored or removed by hand
         }
-        fs::create_directories(fs::path(to).parent_path(), e);
-        fs::path dest = unique_dest(fs::path(to));
-        fs::rename(fs::path(from), dest, e);
+        fs::create_directories(from_utf8(to).parent_path(), e);
+        fs::path dest = unique_dest(from_utf8(to));
+        fs::rename(from_utf8(from), dest, e);
         if (e) {
-            fs::copy_file(fs::path(from), dest, fs::copy_options::overwrite_existing, e);
+            fs::copy_file(from_utf8(from), dest, fs::copy_options::overwrite_existing, e);
             if (!e) {
-                fs::remove(fs::path(from), e);
+                fs::remove(from_utf8(from), e);
             }
         }
         if (e) {
@@ -442,7 +461,7 @@ GateActionResult gate_restore_quarantined(const std::string& quarantine_dir)
     log.close();
 
     // Rewrite the log with only what could not be put back, so a retry is exact.
-    std::ofstream rewrite(log_path.string(), std::ios::trunc);
+    std::ofstream rewrite(to_utf8(log_path), std::ios::trunc);
     for (const auto& kv : kept) {
         rewrite << kv.first << "\t" << kv.second << "\n";
     }
@@ -461,7 +480,7 @@ GateActionResult gate_delete_files(const std::vector<std::string>& paths,
             continue;
         }
         std::error_code e;
-        if (fs::remove(fs::path(p), e) && !e) {
+        if (fs::remove(from_utf8(p), e) && !e) {
             out.done++;
         } else {
             out.failed.push_back({p, e ? e.message() : "could not delete"});

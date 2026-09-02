@@ -249,7 +249,7 @@ void gate_verdict(GateResult& res)
         res.verdict = GateVerdict::PADDED;
         res.confidence = 95;
         snprintf(buf, sizeof(buf),
-                 "declared %d-bit but only %d bits are ever used — padded up from a %d-bit master",
+                 "declared %d-bit but only %d bits are ever used - padded up from a %d-bit master",
                  res.declared_bits, res.effective_bits, res.effective_bits);
         res.reasons = {buf};
         return;
@@ -259,7 +259,7 @@ void gate_verdict(GateResult& res)
         res.verdict = GateVerdict::UPSAMPLED;
         res.confidence = 90;
         snprintf(buf, sizeof(buf),
-                 "%.1f kHz file with nothing above %.1f kHz — upsampled, not a high-resolution master",
+                 "%.1f kHz file with nothing above %.1f kHz - upsampled, not a high-resolution master",
                  res.sample_rate / 1000.0, res.cutoff_hz / 1000.0);
         res.reasons = {buf};
         return;
@@ -280,13 +280,13 @@ void gate_verdict(GateResult& res)
     }
     if (dead_above) {
         snprintf(buf, sizeof(buf),
-                 "only %.0f dB above it — below the dither floor any real 16-bit master leaves behind",
+                 "only %.0f dB above it - below the dither floor any real 16-bit master leaves behind",
                  res.above_db);
         reasons.push_back(buf);
     }
     if (res.side_ratio_db <= -40.0 && low_cutoff) {
         snprintf(buf, sizeof(buf),
-                 "stereo side channel %.0f dB under mid near the cutoff — joint-stereo collapse",
+                 "stereo side channel %.0f dB under mid near the cutoff - joint-stereo collapse",
                  res.side_ratio_db);
         reasons.push_back(buf);
     }
