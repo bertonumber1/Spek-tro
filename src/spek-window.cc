@@ -61,7 +61,7 @@ private:
 SpekWindow::SpekWindow(const wxString& path) :
     wxFrame(NULL, -1, wxEmptyString, wxDefaultPosition, wxDefaultSize), path(path)
 {
-    this->description = _("Spek - Acoustic Spectrum Analyser");
+    this->description = _("Spek-tro - Fake-Lossless Spectrum Analyser");
     SetTitle(this->description);
     SetSize(this->FromDIP(wxSize(640, 480)));
 
