@@ -24,8 +24,11 @@ private:
 
 typedef void (wxEvtHandler::*SpekHaveSampleEventFunction)(SpekHaveSampleEvent&);
 
-DECLARE_EVENT_TYPE(SPEK_HAVE_SAMPLE, wxID_ANY)
+// Declared with the modern macro so this builds against both a shared and a
+// static wxWidgets; the 2.8-era DECLARE_EVENT_TYPE resolves to dllimport
+// under WXUSINGDLL and cannot link.
+wxDECLARE_EVENT(SPEK_HAVE_SAMPLE, SpekHaveSampleEvent);
 
 #define SPEK_EVT_HAVE_SAMPLE(fn) \
-    DECLARE_EVENT_TABLE_ENTRY(SPEK_HAVE_SAMPLE, -1, -1, \
-    (wxObjectEventFunction) (SpekHaveSampleEventFunction) &fn, (wxObject *) NULL ),
+    wx__DECLARE_EVT0(SPEK_HAVE_SAMPLE, \
+    (wxObjectEventFunction) (SpekHaveSampleEventFunction) &fn)
