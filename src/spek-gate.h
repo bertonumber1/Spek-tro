@@ -57,6 +57,7 @@ struct GateResult
     int channels = 0;
     int declared_bits = 0;
     int effective_bits = 0;
+    int64_t bitrate_bps = 0;     // the file's OWN declared/container bitrate
     double duration = 0.0;
     int frames = 0;              // FFT frames actually accumulated (silence skipped)
 
@@ -86,15 +87,26 @@ struct GateResult
 
 // Analyse one file. Pure function over a path, so it can be run against
 // known-answer controls — the only reason to trust any of it.
+//
+// `force_measure`: a lossy-format file (mp3/aac/...) normally short-circuits
+// before decoding at all — a wall in something meant to be lossy is not a
+// finding. Passing true instead runs the full decode + spectral measurement
+// on it anyway, purely as a LOOKING GLASS: the verdict still comes back
+// LOSSY_FORMAT, never LOSSY/SUSPECT, but cutoff_hz/wall_db/above_db and the
+// declared-vs-spectral bitrate comparison in `reasons` get filled in. This is
+// the MP3 bitrate check, not a second fake-lossless detector.
 GateResult gate_analyse(const std::string& path,
-                        double max_seconds = GATE_MAX_ANALYSIS_SECONDS);
+                        double max_seconds = GATE_MAX_ANALYSIS_SECONDS,
+                        bool force_measure = false);
 
 // The encoder setting a given cutoff implies, at 44.1/48 kHz.
 std::string gate_estimate_source(double cutoff_hz);
 
-// Is this an extension worth checking? Deliberately excludes .mp3/.aac/.ogg —
-// those are *meant* to be lossy, so a wall in one is noise, not a finding.
-bool gate_is_checkable(const std::string& path);
+// Is this an extension worth checking? Deliberately excludes .mp3/.aac/.ogg by
+// default — those are *meant* to be lossy, so a wall in one is noise, not a
+// finding. `include_lossy` opts a folder scan into also listing them, for the
+// MP3 bitrate check rather than fake-lossless detection.
+bool gate_is_checkable(const std::string& path, bool include_lossy = false);
 
 // ---- exposed for the known-answer tests -------------------------------------
 //

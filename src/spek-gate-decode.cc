@@ -256,7 +256,29 @@ struct Accumulator
 
 } // namespace
 
-GateResult gate_analyse(const std::string& path, double max_seconds)
+// The estimate labels a cutoff maps to, paired with the highest declared kbps
+// that bucket can plausibly mean — "128 kbps or lower" is open-ended at the
+// BOTTOM (a 96 or a 140 kbps file both land there), so the only meaningful
+// question is whether the declared rate overshoots the bucket's own TOP.
+// "320 kbps" has no ceiling worth naming — 0 means "never flag".
+static int estimate_ceiling_kbps(const std::string& estimate)
+{
+    static const struct { const char *label; int ceiling_kbps; } table[] = {
+        {"128 kbps or lower", 144},
+        {"160 kbps", 176},
+        {"192 kbps", 224},
+        {"256 kbps / MP3 V2", 288},
+        {"320 kbps", 0},
+    };
+    for (const auto& row : table) {
+        if (estimate == row.label) {
+            return row.ceiling_kbps;
+        }
+    }
+    return 0;
+}
+
+GateResult gate_analyse(const std::string& path, double max_seconds, bool force_measure)
 {
     GateResult res;
     res.path = path;
@@ -310,6 +332,10 @@ GateResult gate_analyse(const std::string& path, double max_seconds)
     if (!res.declared_bits) {
         res.declared_bits = par->bits_per_coded_sample;
     }
+    res.bitrate_bps = par->bit_rate;
+    if (!res.bitrate_bps) {
+        res.bitrate_bps = fmt->bit_rate;   // container-level estimate, e.g. some VBR mp3s
+    }
     res.nyquist_hz = res.sample_rate / 2.0;
     if (stream->duration != AV_NOPTS_VALUE) {
         res.duration = stream->duration * av_q2d(stream->time_base);
@@ -341,9 +367,14 @@ GateResult gate_analyse(const std::string& path, double max_seconds)
         res.date = tag("year");
     }
 
-    // A lossy format is not a finding: an .mp3 is *meant* to have a wall, and the
-    // same .m4a extension carries both ALAC and AAC, so the codec decides.
-    if (is_lossy_codec(par->codec_id)) {
+    // A lossy format is not a fake-lossless finding: an .mp3 is *meant* to have a
+    // wall, and the same .m4a extension carries both ALAC and AAC, so the codec
+    // decides. Normally that is the end of it. force_measure asks a different
+    // question — not "is this a fake", but "what is this actually encoded at" —
+    // so it falls through to the same decode + measurement the lossless path
+    // uses, and the comparison against the declared bitrate happens below.
+    bool lossy_format = is_lossy_codec(par->codec_id);
+    if (lossy_format && !force_measure) {
         res.verdict = GateVerdict::LOSSY_FORMAT;
         res.confidence = 100;
         res.reasons = {res.codec + " — a lossy format by design, so there is nothing to fake here"};
@@ -454,6 +485,40 @@ GateResult gate_analyse(const std::string& path, double max_seconds)
     }
     res.bands = gate_band_table(freqs, smooth);
     gate_verdict(res);
+
+    // gate_verdict() just judged this the way it would a FLAC — LOSSY/SUSPECT if
+    // the wall is sharp enough, CLEAN otherwise. Neither is the right word for a
+    // file that is SUPPOSED to be lossy: put the verdict back to LOSSY_FORMAT,
+    // keep the real measurements it made along the way, and say whether the
+    // header's own declared bitrate agrees with what the spectrum backs up.
+    if (lossy_format) {
+        res.verdict = GateVerdict::LOSSY_FORMAT;
+        res.confidence = 100;
+        if (res.estimated_source.empty()) {
+            res.estimated_source = gate_estimate_source(res.cutoff_hz);
+        }
+        // The panel appends "(estimated_source)" to whatever is in `reasons` on
+        // its own, so this text names the comparison without repeating that
+        // string itself — the caller's parenthetical supplies it exactly once.
+        char buf[256];
+        if (res.bitrate_bps > 0) {
+            int declared_kbps = (int)(res.bitrate_bps / 1000);
+            int ceiling_kbps = estimate_ceiling_kbps(res.estimated_source);
+            if (ceiling_kbps > 0 && declared_kbps > ceiling_kbps * 1.1) {
+                snprintf(buf, sizeof(buf),
+                         "%s, declared %d kbps but the spectrum does not back that up — "
+                         "re-saved at a higher bitrate than it was ever encoded at",
+                         res.codec.c_str(), declared_kbps);
+            } else {
+                snprintf(buf, sizeof(buf),
+                         "%s, declared %d kbps — spectral content agrees",
+                         res.codec.c_str(), declared_kbps);
+            }
+        } else {
+            snprintf(buf, sizeof(buf), "%s — a lossy format by design", res.codec.c_str());
+        }
+        res.reasons = {buf};
+    }
 
     cleanup();
     return res;

@@ -61,7 +61,8 @@ std::vector<const GateResult*> GateScan::flagged() const
     return out;
 }
 
-std::vector<std::string> gate_find_audio_files(const std::string& root, bool recursive)
+std::vector<std::string> gate_find_audio_files(const std::string& root, bool recursive,
+                                               bool include_lossy)
 {
     std::vector<std::string> out;
     std::error_code ec;
@@ -74,7 +75,7 @@ std::vector<std::string> gate_find_audio_files(const std::string& root, bool rec
         if (!fs::is_regular_file(p, e)) {
             return;
         }
-        if (!gate_is_checkable(to_utf8(p))) {
+        if (!gate_is_checkable(to_utf8(p), include_lossy)) {
             return;
         }
         // Never re-report what a previous scan pulled out.
@@ -113,7 +114,8 @@ GateScan gate_scan_paths(const std::vector<std::string>& paths,
                          const std::string& root,
                          const std::function<void(int, int, const std::string&)>& on_progress,
                          const std::function<bool()>& should_stop,
-                         double max_seconds)
+                         double max_seconds,
+                         bool force_measure)
 {
     GateScan scan;
     scan.root = root;
@@ -127,7 +129,7 @@ GateScan gate_scan_paths(const std::vector<std::string>& paths,
         if (on_progress) {
             on_progress((int)i + 1, (int)paths.size(), paths[i]);
         }
-        scan.results.push_back(gate_analyse(paths[i], max_seconds));
+        scan.results.push_back(gate_analyse(paths[i], max_seconds, force_measure));
     }
     scan.scanned = (int)scan.results.size();
 

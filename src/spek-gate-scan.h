@@ -31,16 +31,20 @@ struct GateScan
 };
 
 // Every lossless-claiming file under `root`, minus anything already quarantined.
-std::vector<std::string> gate_find_audio_files(const std::string& root, bool recursive);
+// `include_lossy` also lists .mp3/.aac/.ogg/etc — see gate_is_checkable().
+std::vector<std::string> gate_find_audio_files(const std::string& root, bool recursive,
+                                               bool include_lossy = false);
 
 // Analyse each path. `on_progress(done, total, name)` is called before each file;
 // `should_stop()` is polled between files so a long scan stays interruptible.
+// `force_measure` is passed straight to gate_analyse() — see there.
 GateScan gate_scan_paths(
     const std::vector<std::string>& paths,
     const std::string& root,
     const std::function<void(int, int, const std::string&)>& on_progress = nullptr,
     const std::function<bool()>& should_stop = nullptr,
-    double max_seconds = GATE_MAX_ANALYSIS_SECONDS);
+    double max_seconds = GATE_MAX_ANALYSIS_SECONDS,
+    bool force_measure = false);
 
 // A plain-text report including the per-band table, so a finding can be handed to
 // a seller or a label as numbers rather than a screenshot.

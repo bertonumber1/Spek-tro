@@ -64,10 +64,13 @@ int gate_verdict_rank(GateVerdict v)
     }
 }
 
-bool gate_is_checkable(const std::string& path)
+bool gate_is_checkable(const std::string& path, bool include_lossy)
 {
     static const char *exts[] = {
         ".flac", ".wav", ".aiff", ".aif", ".alac", ".m4a", ".ape", ".wv", ".tta"
+    };
+    static const char *lossy_exts[] = {
+        ".mp3", ".aac", ".ogg", ".opus", ".wma"
     };
     size_t dot = path.find_last_of('.');
     if (dot == std::string::npos) {
@@ -80,6 +83,13 @@ bool gate_is_checkable(const std::string& path)
     for (const char *e : exts) {
         if (ext == e) {
             return true;
+        }
+    }
+    if (include_lossy) {
+        for (const char *e : lossy_exts) {
+            if (ext == e) {
+                return true;
+            }
         }
     }
     return false;

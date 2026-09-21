@@ -81,11 +81,19 @@ void SpekGatePanel::build_ui()
     this->btn_files = new wxButton(this, ID_PICK_FILES, _("Scan Files..."));
     this->recursive = new wxCheckBox(this, wxID_ANY, _("Include subfolders"));
     this->recursive->SetValue(true);
+    this->check_bitrates = new wxCheckBox(this, wxID_ANY, _("Also check MP3/AAC bitrates"));
+    this->check_bitrates->SetValue(false);
+    this->check_bitrates->SetToolTip(_(
+        "Lists mp3/aac/ogg files too. Never called a fake — that verdict only "
+        "means something for a file claiming to be lossless — but Cutoff/Wall/"
+        "Above get measured anyway and Why says whether the declared bitrate "
+        "agrees with what the spectrum is actually consistent with."));
     this->btn_stop = new wxButton(this, ID_STOP, _("Stop"));
 
     controls->Add(this->btn_folder, 0, wxALL, 4);
     controls->Add(this->btn_files, 0, wxALL, 4);
     controls->Add(this->recursive, 0, wxALIGN_CENTER_VERTICAL | wxALL, 4);
+    controls->Add(this->check_bitrates, 0, wxALIGN_CENTER_VERTICAL | wxALL, 4);
     controls->AddStretchSpacer();
     controls->Add(this->btn_stop, 0, wxALL, 4);
     root->Add(controls, 0, wxEXPAND);
@@ -150,6 +158,8 @@ void SpekGatePanel::on_pick_files(wxCommandEvent&)
     wxFileDialog dlg(this, _("Choose files to check"), this->cur_dir, wxEmptyString,
                      _("Lossless audio") +
                          "|*.flac;*.wav;*.aiff;*.aif;*.alac;*.m4a;*.ape;*.wv;*.tta"
+                         "|" + _("MP3/AAC/OGG (bitrate check)") +
+                         "|*.mp3;*.aac;*.ogg;*.opus;*.wma"
                          "|" + _("All files") + "|*",
                      wxFD_OPEN | wxFD_MULTIPLE | wxFD_FILE_MUST_EXIST);
     if (dlg.ShowModal() == wxID_OK) {
@@ -163,9 +173,12 @@ void SpekGatePanel::on_pick_files(wxCommandEvent&)
 void SpekGatePanel::scan_folder(const wxString& path)
 {
     std::vector<std::string> files =
-        gate_find_audio_files(std::string(path.utf8_str()), this->recursive->GetValue());
+        gate_find_audio_files(std::string(path.utf8_str()), this->recursive->GetValue(),
+                              this->check_bitrates->GetValue());
     if (files.empty()) {
-        wxMessageBox(_("No lossless audio files found in that folder."),
+        wxMessageBox(this->check_bitrates->GetValue()
+                        ? _("No audio files found in that folder.")
+                        : _("No lossless audio files found in that folder."),
                      _("Nothing to check"), wxOK | wxICON_INFORMATION, this);
         return;
     }
@@ -221,7 +234,8 @@ void SpekGatePanel::start_scan(const std::vector<std::string>& paths, const std:
         _("Found %d file(s) to check..."), (int)paths.size()));
     update_buttons();
 
-    this->worker.reset(new std::thread([this, paths, root]() {
+    bool force_measure = this->check_bitrates->GetValue();
+    this->worker.reset(new std::thread([this, paths, root, force_measure]() {
         GateScan result;
         try {
             result = gate_scan_paths(
@@ -233,7 +247,8 @@ void SpekGatePanel::start_scan(const std::vector<std::string>& paths, const std:
                 evt->SetString(wxString::FromUTF8(name.c_str()));
                 wxQueueEvent(this, evt);
             },
-                [this]() { return this->stop_flag.load(); });
+                [this]() { return this->stop_flag.load(); },
+                GATE_MAX_ANALYSIS_SECONDS, force_measure);
         } catch (...) {
             // A scan must never take the program down, and must never leave the
             // window stuck with every button disabled.
@@ -446,6 +461,7 @@ void SpekGatePanel::update_buttons()
     this->btn_folder->Enable(!busy);
     this->btn_files->Enable(!busy);
     this->recursive->Enable(!busy);
+    this->check_bitrates->Enable(!busy);
     this->btn_stop->Enable(busy);
     this->btn_select_flagged->Enable(!busy && have);
     this->btn_report->Enable(!busy && have);

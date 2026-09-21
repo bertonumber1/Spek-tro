@@ -92,6 +92,11 @@ private:
     wxStaticText *status = nullptr;
     wxStaticText *summary = nullptr;
     wxCheckBox *recursive = nullptr;
+    // Off by default: including every mp3 in a big library scan would slow down
+    // and clutter the fake-lossless hunt this panel exists for. On, it turns
+    // gate_analyse loose on lossy files too — not to call them fake, but to show
+    // what they are actually encoded at next to what they claim.
+    wxCheckBox *check_bitrates = nullptr;
     wxButton *btn_folder = nullptr;
     wxButton *btn_files = nullptr;
     wxButton *btn_stop = nullptr;
