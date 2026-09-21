@@ -93,7 +93,28 @@ analysis code itself still compiles against older distributions.
 Cross-compiled from Linux with [MXE](https://mxe.cc/), as upstream Spek does.
 Spek's own `dist/win/mxe.diff` no longer applies to current MXE; use
 `dist/win/trim-ffmpeg.py`, which cuts ffmpeg to a decode-only build and drops the
-18 codec libraries this app cannot reach.
+18 codec libraries this app cannot reach. MXE's ffmpeg package also needs `nasm`
+on the build machine (not an MXE package — install it with the system package
+manager) or its configure step fails with "nasm not found".
+
+Once MXE has built `wxwidgets` and `ffmpeg` for `x86_64-w64-mingw32.static`,
+cross-compile Spek-tro itself against them (the standard autotools `./autogen.sh`
+needs `wxwin.m4` on its `ACLOCAL_PATH`, which MXE ships under
+`usr/x86_64-w64-mingw32.static/share/aclocal/`, since a build machine with no
+native wxWidgets dev package installed has no other copy of it):
+
+```sh
+MXE=/path/to/mxe/usr
+PATH="$MXE/bin:$PATH" ACLOCAL_PATH="$MXE/x86_64-w64-mingw32.static/share/aclocal" \
+    ./autogen.sh --host=x86_64-w64-mingw32.static --disable-nls \
+    --with-wx-config="$MXE/x86_64-w64-mingw32.static/bin/wx-config"
+PATH="$MXE/bin:$PATH" make -C src -j$(nproc)
+```
+
+The real binary lands at `src/.libs/spek.exe` — 50+ MB and statically linked
+(the static wxWidgets/ffmpeg MXE target pulls everything in), so it runs
+standalone with no DLLs alongside it. `src/spek.exe` itself is only libtool's
+uninstalled-binary wrapper script and does not run on Windows.
 
 ## Credits
 

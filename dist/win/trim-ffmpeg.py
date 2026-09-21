@@ -23,8 +23,11 @@ DROP = {
     "libx264", "libx265", "libxvid", "gnutls", "avisynth", "sdl2",
 }
 
+# Not "postproc": ffmpeg 9.x dropped --disable-postproc entirely (the library
+# itself is gone), so configure now rejects it outright — this failed the
+# 2026-09-21 build with "Unknown option --disable-postproc" until removed.
 EXTRA = [
-    "programs", "avdevice", "swscale", "postproc", "avfilter",
+    "programs", "avdevice", "swscale", "avfilter",
     "encoders", "muxers", "devices", "filters", "network", "iconv",
 ]
 
