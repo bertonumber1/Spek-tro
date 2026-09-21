@@ -353,12 +353,22 @@ bool SpekWindow::render_spectrogram(const wxString& audio_path, const wxString& 
     return this->spectrogram->render_offscreen(audio_path, out_path, width, height, error);
 }
 
-void SpekWindow::check_folder(const wxString& dir)
+void SpekWindow::check_folder(const wxString& path)
 {
     if (!this->splitter->IsSplit()) {
         this->gate_panel->Show();
         this->splitter->SplitHorizontally(
             this->spectrogram, this->gate_panel, this->FromDIP(220));
     }
-    this->gate_panel->scan_folder(dir);
+    // scan_folder() walks a directory; a right-click "Check with Spek-tro"
+    // on a single file hands us a file path instead, and gate_find_audio_
+    // files() silently returns nothing for anything that isn't a directory
+    // — so a lone .wav would just report "no files found" without this check.
+    if (wxFileName::FileExists(path)) {
+        wxArrayString one;
+        one.Add(path);
+        this->gate_panel->scan_files(one);
+    } else {
+        this->gate_panel->scan_folder(path);
+    }
 }
